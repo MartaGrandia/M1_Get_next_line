@@ -1,46 +1,68 @@
-# 🔄 Piscine Reload
+# 🧵 Get Next Line (GNL)
 
-A targeted refresher engineering suite validating core low-level C concepts, pointer arithmetic, memory management, function pointers, and build system configurations.
+> A low-level C function designed to read line-by-line from a file descriptor using static memory persistence and dynamically allocated buffers.
 
 ## 📖 Overview
 
-This repository consolidates a rapid-fire review of foundational Unix shell administration, manual C memory manipulation, custom string operations, dynamic array allocation, higher-order function pointers, and `Makefile` automation. It serves as a benchmark for verifying low-level programming readiness before advancing to complex system architectures.
+`get_next_line` is a core C system programming project focused on file stream parsing, dynamic heap allocation, and state retention across function invocations. The function reads a single line ending with a newline (`\n`) or EOF from a given file descriptor without loading the entire file into memory at once.
 
-## ⚙️ Technical Standards & Constraints
+## ⚙️ Technical Constraints & Architecture
 
-- **Language:** C (compiled with `gcc -Wall -Wextra -Werror`).
-- **Coding Standard:** 100% compliance with 42's **Norminette** linter.
-- **Low-Level Execution:** Zero reliance on standard library abstractions. Custom implementations written using primitive system calls (`write`, `malloc`, `free`).
-- **Memory Safety:** Strict heap memory lifecycle management with zero tolerance for dangling pointers or memory leaks.
-
----
-
-## 🗺️ Topic Breakdown & Implementation Summary
-
-| Category | Key Concepts | Implementations & Technical Scope |
-| :--- | :--- | :--- |
-| **Shell & Environment** | Terminal Pipelines & POSIX | File system queries (`find`, `ls`), attribute filtering, line counting pipelines. |
-| **Pointers & Addressing** | Pointer Arithmetic & In-Place Ops | Single and multi-level pointer dereferencing (`ft_ft`, `ft_ultimate_ft`), variable swaps, quotient/remainder calculation via reference. |
-| **String Manipulation** | Null-Terminated Buffers | Reimplementation of core string utilities (`ft_putstr`, `ft_strlen`, `ft_strcmp`). |
-| **Dynamic Memory** | Heap Allocation & Buffer Duplication | Dynamic memory allocation via `malloc` (`ft_range`, `ft_strdup`, argument array concatenation). |
-| **Function Pointers** | Higher-Order Functions in C | Passing function addresses as parameters to iterate over, transform, or evaluate dynamic arrays (`ft_foreach`, `ft_map`, `ft_any`, `ft_count_if`). |
-| **Builds & Preprocessor** | Build Systems & Header Guards | Writing robust `Makefile` automation (`all`, `clean`, `fclean`, `re`), macro definitions (`ft_abs.h`), and custom structure definitions (`ft_point.h`). |
+- **Language:** C (compiled with `gcc -Wall -Wextra -Werror -D BUFFER_SIZE=n`).
+- **Allowed System Calls:** Restricted to primitive POSIX I/O (`read`), dynamic memory management (`malloc`, `free`).
+- **State Persistence:** Preserves unread stream data ("stash") across function calls using internal `static` variables.
+- **Memory Safety:** Strictly audited zero-leak lifecycle management across both successful reads and unhandled I/O failures (verified via Valgrind).
+- **Standards:** 100% compliant with 42's **Norminette** coding standard.
 
 ---
 
-## 🛠️ Quickstart & Compilation
+## ✨ Key Features & Technical Implementation
 
-### Testing Utility Functions
+- **Arbitrary Buffer Execution:** Operates deterministically regardless of the specified `BUFFER_SIZE` macro (from 1-byte stress tests to large multi-megabyte I/O streams).
+- **Stateful Stream Tracking:** Extracts text up to the first newline delimiter, returns a newly allocated string, and stores remaining bytes in static memory for subsequent calls.
+- **Multi-File Descriptor Support (Bonus):** Supports simultaneous reading from multiple file descriptors concurrently using an indexed static pointer array without state cross-contamination.
+- **Edge-Case Resilience:** Handles EOF, empty files, invalid file descriptors, dynamic allocation failures, and files missing trailing newlines gracefully.
 
-To test individual exercises (such as string manipulation or memory allocation routines), compile the target source file alongside a test runner `main.c`:
+---
+
+## 🛠️ Quickstart & Integration Example
+
+Since `get_next_line` is a utility function, you can test its behavior by integrating it into a test runner like `main.c`:
 
 ```c
+#include <fcntl.h>
+#include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include "get_next_line.h"
 
-void ft_putstr(char *str);
-
-int main(void)
+int main(int argc, char **argv)
 {
-    ft_putstr("Testing Piscine Reload utilities...\n");
+    int     fd;
+    char    *line;
+    int     lines_read;
+
+    if (argc < 2)
+    {
+        printf("Usage: %s <filename>\n", argv[0]);
+        return (1);
+    }
+
+    fd = open(argv[1], O_RDONLY);
+    if (fd < 0)
+    {
+        perror("Error opening file");
+        return (1);
+    }
+
+    lines_read = 0;
+    while ((line = get_next_line(fd)) != NULL && lines_read < 5)
+    {
+        printf("%s", line);
+        free(line); // Caller is responsible for freeing allocated line memory
+        lines_read++;
+    }
+
+    close(fd);
     return (0);
 }
